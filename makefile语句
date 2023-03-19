@@ -1,0 +1,63 @@
+make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- distclean
+make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- mx6ull_14x14_ddr512_emmc_defconfig
+make V=1 ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -j12
+
+变量 SHELL 和 MAKEFLAGS 除非是使用 “unexport”，否则会自动传递给子makefile文件
+
+filter: 过滤，返回符合的字符串
+#$(filter <pattern...>,<text>)
+
+export：导出变量到子makefile
+#export A B C 
+
+$(if <condition>,<then-part>,<else-part> )
+#<condition>参数是if的表达式，如果其返回的为非空字符串，那么这个表达式就相当于返回真，
+#于是，<then-part>会被计算，否则<else-part>会被计算
+#if函数的返回值是，
+#如果<condition>为真（非空字符串），那个<then-part>会是整个函数的返回值，
+#如果<condition>为假（空字符串），那么<else-part>会是整个函数的返回值，
+#此时如果<else-part>没有被定义，那么，整个函数返回空字串。
+
+MAKECMDGOALS: 隐藏变量，记录的是make 的最终目标
+# 如果，是 make all，那么MAKECMDGOALS的值就是 all
+
+makefile不能定义空目标或者空伪目标如，但可以使用@: 整一个空操作来避免报错
+clean:
+    @:
+# 假如目标有很多个依赖，有一个依赖不是空目标，就不需要 @: 这种用法，不会打印出不好的东西
+
+make -C /path/to/dir -f my_makefile
+# -C 在make执行前切换至 xxx 目录
+# -f 指定make的Makefile文件为 xxx
+
+--no-print-directory: 禁止 make 在进入或离开目录时打印消息
+
+ifeq ($(KBUILD_SRC)/,$(dir $(CURDIR)))
+# 这个判断挺有意思，左面是 $(KBUILD_SRC)/ ,右面是 CURDIR去掉最底层目录
+
+HOSTCFLAGS   = -Wall -Wstrict-prototypes -O2 -fomit-frame-pointer
+# gcc编译选项
+# -Wall：开启所有警告
+# -Wstrict-prototypes：如果函数的声明或定义没有指出参数类型,编译器就发出警告.
+# -fomit-frame-pointer：如果函数不需要frame pointer，就不要将frame pointer保留在寄存器中
+
+交叉编译工具变量设置这一块就挺好：
+; AS		= $(CROSS_COMPILE)as
+; ifneq ($(shell $(CROSS_COMPILE)ld.bfd -v 2> /dev/null),)
+; 这个shell整挺好的，将错误打印输出到null，没有正确打印就没有这功能
+; LD		= $(CROSS_COMPILE)ld.bfd
+; else
+; LD		= $(CROSS_COMPILE)ld
+; endif
+; CC		= $(CROSS_COMPILE)gcc
+; CPP		= $(CC) -E
+; AR		= $(CROSS_COMPILE)ar
+; NM		= $(CROSS_COMPILE)nm
+; LDR		= $(CROSS_COMPILE)ldr
+; STRIP		= $(CROSS_COMPILE)strip
+; OBJCOPY		= $(CROSS_COMPILE)objcopy
+; OBJDUMP		= $(CROSS_COMPILE)objdump
+
+include 和 sinclude
+# include 的文件没有会报错且停止
+# sinclude 的文件没有会继续，相当于 -include

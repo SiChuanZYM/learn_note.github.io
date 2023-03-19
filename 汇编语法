@@ -1,0 +1,47 @@
+
+
+
+// cpsr寄存器 当前程序状态寄存器设置为SVC模式
+1.  mrs r标, r源
+    将源寄存器值移动到目标寄存器(比较特殊，用于cpsr这种特殊寄存器)
+    如：mrs r0, cpsr (特殊)将CPSR的值移动到r0
+
+2.  and r标, r源, #值
+    将r源与值进行与运算，并将结果保存
+    如：and r1, r0, #0x1f 按位与运算，将r0与0x1f与运算后保存在r1. 获得cpsr模式位
+
+3.  teq r源, #值
+    将r与值判断是否相等，并将结果用作后续条件判断
+    如：teq r1, #0x1a 将r1与0x1a判断相等性，作为下面的条件，判断是否为HYP模式
+
+4.  bic, r0, r1, #value
+    value先取反，在与r1进行与运算，并将结果保存再r0
+    如：bic r0, r0, #0x1f 0x1f按位取反后，与上r0，再保存进r0
+
+5.  bicne xxxx
+    和bic一致，加上了ne判断，取上一次的结果，如果不等于(not equal)就执行后续
+
+6.  orr r0, r1, #val
+    r1 | val, wr in r0
+    eg: orrne r0, r0, #0x13
+
+7.  b
+    跳转，不返回
+
+8.  bl
+    跳转，保存跳转前地址，子函数执行完后返回跳转点
+
+9.  .section
+    伪指令，定义了代码段(section)
+    eg: .globl _start
+            .section ".vectors", "ax"
+        _start:
+            xxxx
+
+        伪指令，定义了一个名为".vectors"的代码段，并且拥有"ax"属性
+        "a"这个代码段包含可执行的代码
+        "x"这个代码段包含只读数据
+
+
+
+
