@@ -7,7 +7,7 @@ SECTIONS
  . = ALIGN(4);
  .text :
  {
-  *(.__image_copy_start)
+  *(.)
   *(.vectors)
   arch/arm/cpu/armv7/start.o (.text*)
   *(.text*)

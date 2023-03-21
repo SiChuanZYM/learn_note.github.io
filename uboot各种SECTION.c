@@ -13,40 +13,43 @@ SECTIONS
  * .text段，只读。可执行程序加载到内存后，会将.text段设置为只读
  * 一般用于放程序代码
  */
- .text :
+                                      // 起始地址              长度
+ .text :                              // 0x0000000087800000    0x3c80c
  {
-  *(.__image_copy_start)
-  *(.vectors)
-  arch/arm/cpu/armv7/start.o (.text*)
-  *(.text*)
+  *(.__image_copy_start)              // 0x0000000087800000    0
+  *(.vectors)                         // 0x0000000087800000    0x300
+  arch/arm/cpu/armv7/start.o (.text*) // 0x0000000087800300    0xb0
+  *(.text*)                           // 0x00000000878003b0    0x3c500
  }
 
  /*
   * rodata段，只读。read only data 段
   * 用于存放常量数据
   */
+// SORT_BY_ALIGNMENT  排成直线
+// SORT_BY_NAME       按名称排序
  . = ALIGN(4);
- .rodata : { *(SORT_BY_ALIGNMENT(SORT_BY_NAME(.rodata*))) }
+ .rodata : { *(SORT_BY_ALIGNMENT(SORT_BY_NAME(.rodata*))) } // 0x000000008783c810   0xf56a
  . = ALIGN(4);
 
  /*
   * data段，可读可写。存放编译时就可知的全局变量(已初始化)。
   */
- .data : {
+ .data : {                            // 0x000000008784bda8   0x20a8
   *(.data*)
  }
  . = ALIGN(4);
  . = .;
  . = ALIGN(4);
  .u_boot_list : {
-  KEEP(*(SORT(.u_boot_list*)));
+  KEEP(*(SORT(.u_boot_list*)));       // 0x000000008784de5c   0xb90
  }
  . = ALIGN(4);
  .image_copy_end :
  {
-  *(.__image_copy_end)
+  *(.__image_copy_end)                // 0x000000008784e9ec   0
  }
- .rel_dyn_start :
+ .rel_dyn_start :                     // 0x000000008784e9ec   0x8690
  {
   *(.__rel_dyn_start)
  }
@@ -62,7 +65,7 @@ SECTIONS
   *(.__end)
  }
  _image_binary_end = .;
- . = ALIGN(4096);
+ . = ALIGN(4096);         // 将位置计数器对齐到4096字节边界（很多计算机体系结构使用页内存管理，通常是4096字节）
  .mmutable : {
   *(.mmutable)
  }
