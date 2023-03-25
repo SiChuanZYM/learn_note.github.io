@@ -42,6 +42,32 @@
         "a"这个代码段包含可执行的代码
         "x"这个代码段包含只读数据
 
+10. ldr
+    寄存器赋值
+    eg: ldr	sp, =CONFIG_SYS_INIT_SP_ADDR
+    将sp赋值为 CONFIG_SYS_INIT_SP_ADDR的值
+
+    eg: ldr	sp, [r9, #GD_START_ADDR_SP]
+    为sp取值，取的值为[r9 + #GD_START_ADDR_SP]地址对应的值
+    即 sp = *(unsigned int *)(0x0091FA00 + 60)
+
+
+11. push	{ip, lr}
+    压栈，将ip和lr的值压栈
+
+12. lr寄存器
+    链接寄存器，储存下一条指令的位置。当执行一个跳转 bl或bx时，会把跳转指令的下一条指令的地址存储到lr中。
+    跳转前压栈，返回后出栈。一般和ip联合使用，以便恢复现场。
+
+13. ip寄存器
+    存储中间结果。别名r12.
+
+14. pop	{ip, pc}
+    出栈。恢复ip(r12)和pc
+    
+15. r9寄存器
+    r9寄存器是全局指针寄存器，会一直保存写入的值，直到被改变
+
 
 
 

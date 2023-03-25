@@ -19,7 +19,7 @@ ENTRY(lowlevel_init)
 	/*
 	 * Setup a temporary stack. Global data is not available yet.
 	 */
-	ldr	sp, =8
+	ldr	sp, =CONFIG_SYS_INIT_SP_ADDR
 	bic	sp, sp, #7 /* 8-byte alignment for ABI compliance */
 #ifdef CONFIG_SPL_DM
 	mov	r9, #0

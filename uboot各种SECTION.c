@@ -49,6 +49,10 @@ SECTIONS
  {
   *(.__image_copy_end)                // 0x000000008784e9ec   0
  }
+
+  /*
+  * .rel.dyn是重定位相关的，不理解。先不管
+  */
  .rel_dyn_start :                     // 0x000000008784e9ec   0x8690
  {
   *(.__rel_dyn_start)
@@ -56,16 +60,16 @@ SECTIONS
  .rel.dyn : {
   *(.rel*)
  }
- .rel_dyn_end :
+ .rel_dyn_end :                       // 0x000000008785707c   0
  {
   *(.__rel_dyn_end)
  }
- .end :
+ .end :                               // 0x000000008785707c   0
  {
   *(.__end)
  }
  _image_binary_end = .;
- . = ALIGN(4096);         // 将位置计数器对齐到4096字节边界（很多计算机体系结构使用页内存管理，通常是4096字节）
+ . = ALIGN(4096);            // 将位置计数器对齐到4096字节边界（很多计算机体系结构使用页内存管理，通常是4096字节）
  .mmutable : {
   *(.mmutable)
  }
@@ -73,28 +77,28 @@ SECTIONS
  /*
   * bss段，可读可写。未初始化或者初始化为0的全局变量
   */
- .bss_start __rel_dyn_start (OVERLAY) : {
-  KEEP(*(.__bss_start));
+ .bss_start __rel_dyn_start (OVERLAY) : {   // .bss_start 的值为 __rel_dyn_start的地址，(OVERLAY)表示这个标签的地址在编译时不确定，要在链接时进行计算
+  KEEP(*(.__bss_start));              // 0x000000008784e9ec   0   // KEEP 表示保留这个标签的对象，防止被优化掉
   __bss_base = .;
  }
- .bss __bss_base (OVERLAY) : {
+ .bss __bss_base (OVERLAY) : {        // 0x000000008784e9ec   0x4afe8
   *(.bss*)
    . = ALIGN(4);
    __bss_limit = .;
  }
- .bss_end __bss_limit (OVERLAY) : {
+ .bss_end __bss_limit (OVERLAY) : {   // 0x00000000878999d4   0
   KEEP(*(.__bss_end));
  }
- .dynsym _image_binary_end : { *(.dynsym) }
- .dynbss : { *(.dynbss) }
- .dynstr : { *(.dynstr*) }
- .dynamic : { *(.dynamic*) }
- .plt : { *(.plt*) }
- .interp : { *(.interp*) }
- .gnu.hash : { *(.gnu.hash) }
- .gnu : { *(.gnu*) }
- .ARM.exidx : { *(.ARM.exidx*) }
- .gnu.linkonce.armexidx : { *(.gnu.linkonce.armexidx.*) }
+ .dynsym _image_binary_end : { *(.dynsym) }   // .dynsym 动态符号表
+ .dynbss : { *(.dynbss) }                     // .dynbss 动态符号表的bss段
+ .dynstr : { *(.dynstr*) }                    // .dynstr 动态符号表的字符串段
+ .dynamic : { *(.dynamic*) }                  // .dynamic 动态连接信息
+ .plt : { *(.plt*) }                          // .plt 过程链接表
+ .interp : { *(.interp*) }                    // .interp 动态链接器路径
+ .gnu.hash : { *(.gnu.hash) }                 // .gnu.hash 哈希表
+ .gnu : { *(.gnu*) }                          // .gnu gcc特有段
+ .ARM.exidx : { *(.ARM.exidx*) }              // .ARM.exidx 异常处理表
+ .gnu.linkonce.armexidx : { *(.gnu.linkonce.armexidx.*) }   // .gnu.linkonce.armexidx 异常处理表中只会出现一次的符号
 }
 
 
