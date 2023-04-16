@@ -18,6 +18,7 @@ _start:
 	            .weak	save_boot_params
             // ENTRT定义函数入口，ENDPROC定义函数结束点。共同组成，有头有尾。
             // 同时.weak 弱定义，方便其他覆盖
+			ctr0.S文件中
             ->save_boot_params_ret:
                 ->save_boot_params_ret函数段
                 bl	cpu_init_cp15
@@ -43,7 +44,30 @@ _start:
 						且，此时r9保存这global_data的地址 0x0091fa00
 					-> bl board_init_f
 						board_f.c文件中
-						
+						-> 初始化DDR、定时器、代码拷贝等
+						执行函数列表 init_sequence_f
+						imx6_light_up_led1()
+					-> sp = gd->start_addr_sp // 设置sp为gd->start_addr_sp
+					-> 设置 r0 = gd->relocaddr // 0x9FF47000
+					-> b relocate_code	// 重定位
+						-> relocate.S文件中
+						relocate_code
+						copy_loop:
+							r1 = 0x87000000	// 原起始地址
+							r4 = 0x18747000	// 原起始地址和移动后地址偏移
+							r2 = 0x8785dc6c	// 原镜像结束地址
+							ldmia	r1!, {r10-r11}	// 从r1开始，读取2byte数据值r10，r11，r1+8
+							stmia	r0!, {r10-r11}	// 把r10，r11数据写到r0地址，r0+8
+							cmp	r1, r2				// 比较 r1和r2(地址是否加到了原end)
+							blo	copy_loop			// 没有就返回 copy_loop，继续执行上面的，直至完成
+						还有rel_dyn段处理。不做讲解
+					-> bl relocate_vectors
+						-> relocate.S文件中
+						设置VBAR寄存器为重定位后的中断向量表起始地址
+					-> ...
+					-> board_init_r
+						-> 
+
 						
 
 
@@ -258,7 +282,7 @@ ENTRY(_main)
 	bl	board_init_f_init_reserve
 	
 	mov	r0, #0
-	bl	board_init_f
+	bl	board_init_f	// 重要函数，初始化DDR、定时器、代码拷贝等
 
 #if ! defined(CONFIG_SPL_BUILD)
 
@@ -269,6 +293,10 @@ ENTRY(_main)
  */
 
 	ldr	sp, [r9, #GD_START_ADDR_SP]	/* sp = gd->start_addr_sp */
+	// 此处 gd->start_addr_sp = 0X9EF44E90
+	// 从，此处开始。sp使用到了DDR的ram
+	// 之前都是使用的CPU内部的ram
+
 #if defined(CONFIG_CPU_V7M)	/* v7M forbids using SP as BIC destination */
 	mov	r3, sp
 	bic	r3, r3, #7
@@ -345,6 +373,7 @@ clbss_l:cmp	r0, r1			/* while not at end of BSS */
 #endif
 
 ENDPROC(_main)
+
 
 
 
@@ -441,3 +470,165 @@ void board_init_f_init_reserve(ulong base)
 	base += CONFIG_SYS_MALLOC_F_LEN;
 #endif
 }
+
+
+
+DDR后的地址分布：
+
+
+-----------<---0x00900000(CONFIG_SYS_INIT_RAM_ADDR)
+|         |
+|         |
+|         |
+|         |
+|         |
+|         |
+-----------<---0x9EF44E90(gd->start_addr_sp)
+
+
+
+
+
+
+
+
+
+
+
+// board_init_f:
+
+
+void board_init_f(ulong boot_flags)
+{
+#ifdef CONFIG_SYS_GENERIC_GLOBAL_DATA
+	/*
+	 * For some archtectures, global data is initialized and used before
+	 * calling this function. The data should be preserved. For others,
+	 * CONFIG_SYS_GENERIC_GLOBAL_DATA should be defined and use the stack
+	 * here to host global data until relocation.
+	 */
+	gd_t data;
+
+	gd = &data;
+
+	/*
+	 * Clear global data before it is accessed at debug print
+	 * in initcall_run_list. Otherwise the debug print probably
+	 * get the wrong vaule of gd->have_console.
+	 */
+	zero_global_data();
+#endif
+
+	gd->flags = boot_flags;
+	gd->have_console = 0;
+
+	if (initcall_run_list(init_sequence_f))
+	//重要，initcall_run_list，调用一系列函数，函数保存在 init_sequence_f
+		hang();
+
+#if !defined(CONFIG_ARM) && !defined(CONFIG_SANDBOX) && \
+		!defined(CONFIG_EFI_APP)
+	/* NOTREACHED - jump_to_copy() does not return */
+	hang();
+#endif
+
+	/* Light up LED1 */
+	imx6_light_up_led1();
+}
+
+//下面列一下init_sequence_f 这一列函数，去掉了条件编译
+static init_fnc_t init_sequence_f[] = {
+	setup_ram_buf,
+	setup_mon_len,	// 设置UBOOT镜像大小 gd->mon_len = (ulong)&__bss_end - (ulong)_start;
+					// = 0x878a8eF4 - 0x87800000 = 0xa8eF4
+	fdtdec_setup,
+	trace_early_init,
+	initf_malloc,	// 设置动态内存限制大小 gd->malloc_limit = CONFIG_SYS_MALLOC_F_LEN; = 0x400
+					// 且设置malloc指针清零 gd->malloc_ptr = 0;
+	initf_console_record,
+	probecpu,
+	x86_fsp_init,
+	arch_cpu_init,	// cpu有关的初始化
+	initf_dm,
+	arch_cpu_init_dm,
+	mark_bootstage,	// 标记当前启动阶段为 boot_init_f
+	board_early_init_f,	//设置imx6ull  uart  io
+	get_clocks,		/* get CPU and bus clocks (etc.) */
+	adjust_sdram_tbs_8xx,
+	init_timebase,
+	timer_init,		// 初始化时钟
+	dpram_init,
+	board_postclk_init,	// 设置SOC内部的电压1.175v
+	get_clocks,
+	env_init,		/* initialize environment */
+	get_clocks_866,
+	sdram_adjust_866,
+	init_timebase,
+	init_baud_rate,	// 初始化最初的串口的波特率，通过uboot的环境变量
+	serial_init,	// 初始化串口
+	console_init_f,	// 设置控制台，为1(设置可使用串口与系统交互)
+	sandbox_early_getopt_check,
+	fdtdec_prepare_fdt,
+	display_options,	// 打印uboot版本信息
+	display_text_info,	// 打印uboot debug信息(debug开启模式下-> #define DEBUG)
+	prt_8260_rsr,
+	prt_8260_clks,
+	prt_83xx_rsr,
+	checkcpu,
+	print_cpuinfo,		// 打印cpu信息
+	prt_mpc5xxx_clks,
+	show_board_info,	// 打印板子信息 9X9 或 14x14
+	INIT_FUNC_WATCHDOG_INIT
+	misc_init_f,
+	INIT_FUNC_WATCHDOG_RESET
+	init_func_i2c,		// 初始化i2c
+	init_func_spi,		// 初始化spi
+	announce_dram_init,	// 打印ram信息
+	dram_init,		// 设置gd->ram_size (512M, 0x2000 0000 byte)
+	init_func_ram,
+	post_init_f,
+	INIT_FUNC_WATCHDOG_RESET
+	testdram,
+	INIT_FUNC_WATCHDOG_RESET
+	init_post,
+	INIT_FUNC_WATCHDOG_RESET
+	setup_dest_addr,
+	// 设置gd变量的ram_size=512M，ram_top=0XA0000000, relocaddr=0XA0000000 (uboot启动后的uboot重定位地址)
+	reserve_uboot,
+	reserve_prom,
+	reserve_logbuffer,
+	reserve_pram,
+	reserve_round_4k,	// gd->relocaddr进行4K对齐(原地址)
+	reserve_mmu,	// mmu是内存管理单元，tlb是快表
+	// 设置gd->arch.tlb_addr为0x9FFF0000，同时，设置 relocaddr 为0x9FFF0000
+	reserve_video,
+	reserve_lcd,
+	reserve_legacy_video,
+	reserve_trace,
+	reserve_uboot,	
+	// 重要，留出uboot内存空间，即relocaddr留出gd->mon_len(0xA8EF4), 然后4k对齐，当前为 0x9FF47000
+	// 设置relocaddr=0x9FF47000，且设置gd->start_addr_sp = gd->relocaddr(uboot栈的起始地址)
+	reserve_malloc,	// 设置 gd->start_addr_sp = start_addr_sp-TOTAL_MALLOC_LEN (留出CONFIG_ENV_SIZE 8K CONFIG_SYS_MALLOC_LEN 16M)
+	reserve_board,	// 设置 gd->start_addr_sp留出 bd_t结构体大小
+	setup_machine,	// 设置 机器ip，用于老的linux检查是否支持这个机器id
+	reserve_global_data,	// 设置 gd->start_addr_sp 留出一个 gd_t 结构体大小，名为new_gd, 且设置gd->new_gd地址
+	reserve_fdt,
+	reserve_arch,
+	reserve_stacks,	// start_addr_sp留出IRQ内存，40 Byte
+	setup_dram_config,	// gd->bd->bi_dram[0].start和gd->bd->bi_dram[0].size
+	show_dram_config,	// 打印dram大小
+	setup_board_part1,
+	INIT_FUNC_WATCHDOG_RESET
+	setup_board_part2,
+	display_new_sp,	// 显示最终确定的 gd->start_addr_sp 0x9EF44E90
+	setup_board_extra,
+	INIT_FUNC_WATCHDOG_RESET
+	reloc_fdt,
+	setup_reloc,
+	// 重要 ，将gd的全部数据，拷贝到 gd_new。 计算出gd->reloc_off(重映射后的地址相对与初始地址0x87800000, 的偏移)
+	copy_uboot_to_ram,
+	clear_bss,
+	do_elf_reloc_fixups,
+	jump_to_copy,
+	NULL,
+};

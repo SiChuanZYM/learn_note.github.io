@@ -90,7 +90,7 @@ ENTRY(_main)
 	bl	board_init_f_init_reserve
 
 	mov	r0, #0
-	bl	board_init_f
+	bl	board_init_f	// 重要函数，初始化DDR、定时器、代码拷贝等
 
 #if ! defined(CONFIG_SPL_BUILD)
 
